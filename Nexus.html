@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Messaging</title>
+    <style>
+        /* THEME VARIABLES */
+        :root {
+            --bg: white;
+            --text: black;
+            --border: #ccc;
+            --container-bg: #fafafa;
+            --hr: #eee;
+            --accent: #3366ff;
+            --btn-bg: #efefef;
+            --overlay: rgba(255, 255, 255, 0.9);
+        }
+
+        [data-theme="dark"] {
+            --bg: #1a1a1a;
+            --text: #e0e0e0;
+            --border: #444;
+            --container-bg: #222;
+            --hr: #333;
+            --btn-bg: #333;
+            --overlay: rgba(26, 26, 26, 0.9);
+        }
+
+        [data-theme="midnight"] {
+            --bg: #00040a;
+            --text: #94a3b8;
+            --border: #1e293b;
+            --container-bg: #020617;
+            --hr: #1e293b;
+            --btn-bg: #1e293b;
+            --overlay: rgba(0, 4, 10, 0.9);
+        }
+
+        [data-theme="neon"] {
+            --bg: #0d001a;
+            --text: #00ff00;
+            --border: #ff00ff;
+            --container-bg: #1a0033;
+            --hr: #ff00ff;
+            --btn-bg: #1a0033;
+            --overlay: rgba(13, 0, 26, 0.9);
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 20px;
+            line-height: 1.4;
+            background-color: var(--bg);
+            color: var(--text);
+            transition: background 0.3s, color 0.3s;
+        }
+
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .hidden { display: none !important; }
+        hr { border: 0; border-top: 1px solid var(--hr); margin: 20px 0; }
+
+        input, button, select { 
+            padding: 8px 12px;
+            margin: 4px 0; 
+            background: var(--btn-bg); 
+            color: var(--text); 
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        button:hover { opacity: 0.8; cursor: pointer; }
+
+        .clickable { color: var(--accent); cursor: pointer; text-decoration: underline; }
+        
+        .messages-area {
+            border: 1px solid var(--border); 
+            height: 350px; 
+            overflow-y: scroll; 
+            padding: 15px;
+            background: var(--container-bg);
+            margin: 10px 0;
+            position: relative;
+        }
+
+        .message-item {
+            border-bottom: 1px dotted var(--border);
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+        }
+
+        .sender { font-weight: bold; font-size: 0.9em; }
+
+        #tab-nav { margin-bottom: 20px; }
+        .tab-btn {
+            padding: 10px 20px;
+            cursor: pointer;
+            margin-right: 8px;
+            font-weight: bold;
+        }
+        .tab-btn.active {
+            background: var(--text);
+            color: var(--bg);
+            border-color: var(--text);
+        }
+
+        .list-container {
+            border: 1px solid var(--border);
+            height: 250px;
+            overflow-y: auto;
+            background: var(--container-bg);
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        .item-row {
+            padding: 10px;
+            border-bottom: 1px solid var(--hr);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .room-key-tag {
+            font-size: 0.75em;
+            background: var(--accent);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+        }
+
+        .contact-badge {
+            background: var(--btn-bg);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+<body data-theme="light">
+
+    <div id="loading-screen">
+        <h1>LOADING NEXUS...</h1>
+    </div>
+
+    <!-- AUTHENTICATION -->
+    <div id="auth-view" class="hidden">
+        <h1 id="auth-title">Login to Nexus</h1>
+        <form id="auth-form">
+            <div id="name-field" class="hidden">
+                <label>Your Name:</label><br>
+                <input type="text" id="auth-name" placeholder="John Doe"><br>
+            </div>
+            <label>Email Address:</label><br>
+            <input type="email" id="auth-email" required><br>
+            <label>Password:</label><br>
+            <input type="password" id="auth-password" required><br>
+            <button type="submit" id="auth-submit-btn">Login</button>
+        </form>
+        <br>
+        <button id="toggle-auth">Switch to Register</button>
+        <p id="auth-error" style="color: red;"></p>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="app-view" class="hidden">
+        <header>
+            <h1>NEXUS</h1>
+            <p>User: <span id="display-username" style="font-weight: bold;"></span> | <button onclick="signOutUser()">Logout</button></p>
+        </header>
+
+        <div id="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('chat')">CHANNELS</button>
+            <button class="tab-btn" onclick="switchTab('contacts')">CONTACTS & DMs</button>
+            <button class="tab-btn" onclick="switchTab('settings')">SETTINGS</button>
+        </div>
+        
+        <hr>
+
+        <!-- TAB: CHAT -->
+        <section id="tab-chat" class="tab-content">
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 300px;">
+                    <h2>Channels</h2>
+                    <input type="text" id="room-search" placeholder="Search rooms..." oninput="filterRooms()" style="width:100%; box-sizing:border-box">
+                    <div id="room-list" class="list-container"></div>
+                    
+                    <h3 style="margin-top:20px">Create Channel</h3>
+                    <form id="create-room-form">
+                        <input type="text" id="room-name-input" placeholder="Room Name" required style="width:100%; box-sizing:border-box"><br>
+                        <label><input type="checkbox" id="room-private-check"> Private (Code Required)</label><br>
+                        <input type="text" id="room-key-input" placeholder="Custom Code (Optional)" style="width:100%; box-sizing:border-box"><br>
+                        <button type="submit" style="width:100%">Create</button>
+                    </form>
+                </div>
+
+                <div style="flex: 2; min-width: 300px;">
+                    <h2># <span id="current-room-display">global</span></h2>
+                    <div id="messages-container" class="messages-area">
+                        <div id="private-lock-overlay" class="hidden" style="position: absolute; top:0; left:0; width:100%; height:100%; background:var(--overlay); display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                            <h3>🔒 Private Room</h3>
+                            <input type="text" id="room-access-code" placeholder="Access Code">
+                            <button id="submit-access-code">Unlock</button>
+                        </div>
+                        <div id="messages-list-inner"></div>
+                    </div>
+                    <form id="message-form" style="display: flex; gap: 5px;">
+                        <input type="text" id="message-input" placeholder="Send a message..." required style="flex-grow: 1;" autocomplete="off">
+                        <button type="submit">Send</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB: CONTACTS & DMs -->
+        <section id="tab-contacts" class="tab-content hidden">
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 300px;">
+                    <h2>Contacts</h2>
+                    <form id="add-contact-form" style="display: flex; gap: 5px;">
+                        <input type="text" id="contact-uid-input" placeholder="User UID" required style="flex-grow: 1;">
+                        <button type="submit">Add</button>
+                    </form>
+                    <div id="contacts-list" class="list-container" style="margin-top: 10px;"></div>
+
+                    <h2 style="margin-top:25px">Recent DMs</h2>
+                    <div id="dm-history-list" class="list-container"></div>
+                </div>
+
+                <div style="flex: 2; min-width: 300px;">
+                    <h2 id="dm-title">Private Chat</h2>
+                    <div id="dm-messages-container" class="messages-area">
+                        <div id="dm-placeholder" style="display:flex; height:100%; justify-content:center; align-items:center; opacity:0.5;">
+                            Select a contact or DM to start chatting
+                        </div>
+                        <div id="dm-list-inner"></div>
+                    </div>
+                    <form id="dm-message-form" style="display: flex; gap: 5px;" class="hidden">
+                        <input type="text" id="dm-message-input" placeholder="Type a private message..." required style="flex-grow: 1;" autocomplete="off">
+                        <button type="submit">Send</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB: SETTINGS -->
+        <section id="tab-settings" class="tab-content hidden">
+            <h2>Settings</h2>
+            <div style="max-width: 500px; background: var(--container-bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border);">
+                <label>Display Name:</label><br>
+                <input type="text" id="update-name-input" style="width: 100%"><br><br>
+                
+                <label>Name Color:</label><br>
+                <input type="color" id="update-color-input"><br><br>
+                
+                <label>Theme Choice:</label><br>
+                <select id="theme-selector" style="width: 100%">
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                    <option value="midnight">Midnight</option>
+                    <option value="neon">Neon</option>
+                </select><br><br>
+                
+                <button onclick="handleUpdateProfile()" style="width: 100%">Save Profile Changes</button>
+                <hr>
+                <p><strong>Your UID (Share this to be added as a contact):</strong></p>
+                <div style="display:flex; gap: 10px; align-items:center;">
+                    <code id="settings-uid" style="background: var(--bg); padding: 8px; border-radius: 4px; flex-grow:1; border: 1px solid var(--border);"></code>
+                    <button onclick="copyMyUid()">Copy</button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getDatabase, ref, push, set, serverTimestamp, query, limitToLast, onValue, off, get, update } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBl6MuVyJa_esK2nekEymWkc629-jgnsa0",
+            authDomain: "nexus-messaging-app.firebaseapp.com",
+            projectId: "nexus-messaging-app",
+            databaseURL: "https://nexus-messaging-app-default-rtdb.firebaseio.com/",
+            storageBucket: "nexus-messaging-app.firebasestorage.app",
+            messagingSenderId: "45696700856",
+            appId: "1:45696700856:web:b0fb4f47484b96056eff4d"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+
+        let isSignUp = false;
+        let currentRoomId = 'global';
+        let currentDmId = null;
+        let messageListener = null;
+        let dmListener = null;
+        let allRooms = {};
+        let pendingRoomData = null;
+
+        const showLoading = (show) => document.getElementById('loading-screen').classList.toggle('hidden', !show);
+
+        window.switchTab = (tabName) => {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + tabName).classList.remove('hidden');
+            const btns = document.querySelectorAll('.tab-btn');
+            btns.forEach(b => { 
+                if(b.innerText.toLowerCase().includes(tabName)) b.classList.add('active'); 
+            });
+        };
+
+        window.copyMyUid = () => {
+            const uid = document.getElementById('settings-uid').innerText;
+            navigator.clipboard.writeText(uid).then(() => alert("UID Copied to clipboard!"));
+        };
+
+        // AUTH
+        document.getElementById('toggle-auth').onclick = () => {
+            isSignUp = !isSignUp;
+            document.getElementById('auth-title').innerText = isSignUp ? "Create Nexus Account" : "Login to Nexus";
+            document.getElementById('name-field').classList.toggle('hidden', !isSignUp);
+            document.getElementById('auth-submit-btn').innerText = isSignUp ? "Register" : "Login";
+            document.getElementById('toggle-auth').innerText = isSignUp ? "Have an account? Login" : "New? Register";
+        };
+
+        document.getElementById('auth-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const name = document.getElementById('auth-name').value.trim();
+            try {
+                if (isSignUp) {
+                    const res = await createUserWithEmailAndPassword(auth, email, password);
+                    await updateProfile(res.user, { displayName: name });
+                    await set(ref(db, 'users/' + res.user.uid), { 
+                        displayName: name || "Anonymous", email, uid: res.user.uid, color: '#3366ff', theme: 'light'
+                    });
+                } else {
+                    await signInWithEmailAndPassword(auth, email, password);
+                }
+            } catch (err) { document.getElementById('auth-error').innerText = err.message; }
+        };
+
+        // CHANNELS
+        window.joinRoom = async (roomId, roomName, isPrivate = false) => {
+            const myUid = auth.currentUser.uid;
+            const overlay = document.getElementById('private-lock-overlay');
+            const inner = document.getElementById('messages-list-inner');
+            
+            overlay.classList.add('hidden');
+            inner.classList.remove('hidden');
+
+            const roomSnap = await get(ref(db, `rooms/${roomId}`));
+            const roomData = roomSnap.val();
+
+            if (isPrivate && roomData) {
+                const accessSnap = await get(ref(db, `users/${myUid}/access/${roomId}`));
+                if (roomData.creator !== myUid && !accessSnap.val()) {
+                    overlay.classList.remove('hidden');
+                    inner.classList.add('hidden');
+                    pendingRoomData = { id: roomId, name: roomName, key: roomData.key };
+                    document.getElementById('current-room-display').innerText = roomName + " (Locked)";
+                    return;
+                }
+            }
+            
+            currentRoomId = roomId;
+            document.getElementById('current-room-display').innerText = roomName;
+            listenForMessages(roomId, 'messages-list-inner', 'messages-container');
+        };
+
+        document.getElementById('submit-access-code').onclick = async () => {
+            const code = document.getElementById('room-access-code').value.trim();
+            if (code === pendingRoomData?.key) {
+                await set(ref(db, `users/${auth.currentUser.uid}/access/${pendingRoomData.id}`), true);
+                joinRoom(pendingRoomData.id, pendingRoomData.name, true);
+                document.getElementById('room-access-code').value = '';
+            } else { alert("Wrong code!"); }
+        };
+
+        function renderRooms(filter = "") {
+            const list = document.getElementById('room-list');
+            list.innerHTML = `<div class="item-row clickable" onclick="joinRoom('global', 'global')"><span># global</span></div>`;
+            const myUid = auth.currentUser.uid;
+
+            Object.entries(allRooms).forEach(([id, room]) => {
+                if (room.name.toLowerCase().includes(filter)) {
+                    const div = document.createElement('div');
+                    div.className = "item-row";
+                    div.innerHTML = `
+                        <span class="clickable" onclick="joinRoom('${id}', '${room.name}', ${room.isPrivate})">
+                            ${room.isPrivate ? '🔒' : '#'} ${room.name}
+                        </span>
+                        ${(room.isPrivate && room.creator === myUid) ? `<span class="room-key-tag">Code: ${room.key}</span>` : ''}
+                    `;
+                    list.appendChild(div);
+                }
+            });
+        }
+
+        document.getElementById('create-room-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('room-name-input').value.trim();
+            const isPrivate = document.getElementById('room-private-check').checked;
+            let key = document.getElementById('room-key-input').value.trim();
+            if (isPrivate && !key) key = Math.random().toString(36).substring(7).toUpperCase();
+            const newRef = push(ref(db, 'rooms'));
+            await set(newRef, { name, creator: auth.currentUser.uid, isPrivate, key: isPrivate ? key : null });
+            e.target.reset();
+        };
+
+        // MESSAGES ENGINE
+        function listenForMessages(roomId, listId, containerId) {
+            const container = document.getElementById(listId);
+            const scrollBox = document.getElementById(containerId);
+            container.innerHTML = '<em>Loading...</em>';
+            
+            const listenerRef = roomId.includes("_dm_") ? dmListener : messageListener;
+            if (listenerRef && !roomId.includes("_dm_")) off(messageListener);
+            if (listenerRef && roomId.includes("_dm_")) off(dmListener);
+
+            const msgRef = query(ref(db, 'messages/' + roomId), limitToLast(50));
+            if (roomId.includes("_dm_")) dmListener = msgRef; else messageListener = msgRef;
+
+            onValue(msgRef, (snap) => {
+                container.innerHTML = '';
+                const data = snap.val();
+                if (data) {
+                    Object.values(data).forEach(msg => {
+                        const div = document.createElement('div');
+                        div.className = "message-item";
+                        div.innerHTML = `<span class="sender" style="color: ${msg.senderColor}">${msg.senderName}:</span> ${msg.text}`;
+                        container.appendChild(div);
+                    });
+                    scrollBox.scrollTop = scrollBox.scrollHeight;
+                } else { container.innerHTML = 'No messages yet.'; }
+            });
+        }
+
+        const sendMessage = async (roomId, textInputId) => {
+            const input = document.getElementById(textInputId);
+            if (!input.value.trim()) return;
+            const userSnap = await get(ref(db, 'users/' + auth.currentUser.uid));
+            const userData = userSnap.val() || {};
+            
+            const msgData = {
+                text: input.value,
+                senderId: auth.currentUser.uid,
+                senderName: userData.displayName || auth.currentUser.email,
+                senderColor: userData.color || '#888',
+                timestamp: serverTimestamp()
+            };
+
+            await set(push(ref(db, 'messages/' + roomId)), msgData);
+            
+            // Record DM history for both users
+            if (roomId.includes("_dm_")) {
+                const parts = roomId.split("_dm_");
+                const targetUid = parts[0] === auth.currentUser.uid ? parts[1] : parts[0];
+                const updateHistory = (uid, partnerUid) => {
+                    set(ref(db, `dm_history/${uid}/${partnerUid}`), { 
+                        lastMsg: input.value, 
+                        timestamp: serverTimestamp(),
+                        partnerUid: partnerUid
+                    });
+                };
+                updateHistory(auth.currentUser.uid, targetUid);
+                updateHistory(targetUid, auth.currentUser.uid);
+            }
+
+            input.value = '';
+        };
+
+        document.getElementById('message-form').onsubmit = (e) => { e.preventDefault(); sendMessage(currentRoomId, 'message-input'); };
+        document.getElementById('dm-message-form').onsubmit = (e) => { e.preventDefault(); sendMessage(currentDmId, 'dm-message-input'); };
+
+        // CONTACTS & DMs
+        document.getElementById('add-contact-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const uid = document.getElementById('contact-uid-input').value.trim();
+            if (!uid || uid === auth.currentUser.uid) return;
+            const snap = await get(ref(db, 'users/' + uid));
+            if (!snap.exists()) return alert("User not found.");
+            const data = snap.val();
+            await set(ref(db, `contacts/${auth.currentUser.uid}/${uid}`), { 
+                uid, displayName: data.displayName || "Anonymous" 
+            });
+            e.target.reset();
+        };
+
+        window.startDM = async (uid, name) => {
+            currentDmId = [auth.currentUser.uid, uid].sort().join("_dm_");
+            document.getElementById('dm-placeholder').classList.add('hidden');
+            document.getElementById('dm-message-form').classList.remove('hidden');
+            document.getElementById('dm-title').innerText = "Chat with " + name;
+            listenForMessages(currentDmId, 'dm-list-inner', 'dm-messages-container');
+        };
+
+        function listenForContactsAndHistory() {
+            // Listen for Contacts
+            onValue(ref(db, `contacts/${auth.currentUser.uid}`), (snap) => {
+                const list = document.getElementById('contacts-list');
+                list.innerHTML = '';
+                const data = snap.val();
+                if(data) {
+                    Object.values(data).forEach(u => {
+                        const div = document.createElement('div');
+                        div.className = "item-row";
+                        div.innerHTML = `
+                            <span>${u.displayName}</span>
+                            <button onclick="startDM('${u.uid}', '${u.displayName}')">Message</button>
+                        `;
+                        list.appendChild(div);
+                    });
+                }
+            });
+
+            // Listen for DM History
+            onValue(ref(db, `dm_history/${auth.currentUser.uid}`), (snap) => {
+                const list = document.getElementById('dm-history-list');
+                list.innerHTML = '';
+                const data = snap.val();
+                if(data) {
+                    Object.values(data).forEach(async dm => {
+                        const userSnap = await get(ref(db, 'users/' + dm.partnerUid));
+                        const name = userSnap.val()?.displayName || "User";
+                        const div = document.createElement('div');
+                        div.className = "item-row clickable";
+                        div.onclick = () => startDM(dm.partnerUid, name);
+                        div.innerHTML = `
+                            <div style="overflow:hidden">
+                                <strong>${name}</strong><br>
+                                <small style="opacity:0.6; white-space:nowrap">${dm.lastMsg}</small>
+                            </div>
+                        `;
+                        list.appendChild(div);
+                    });
+                } else { list.innerHTML = '<p style="text-align:center; opacity:0.5">No recent history</p>'; }
+            });
+        }
+
+        // SETTINGS
+        window.handleUpdateProfile = async () => {
+            const displayName = document.getElementById('update-name-input').value.trim();
+            const color = document.getElementById('update-color-input').value;
+            const theme = document.getElementById('theme-selector').value;
+            await update(ref(db, 'users/' + auth.currentUser.uid), { displayName, color, theme });
+            document.body.setAttribute('data-theme', theme);
+            alert("Profile Saved!");
+        };
+
+        onAuthStateChanged(auth, async (user) => {
+            showLoading(false);
+            if (user) {
+                document.getElementById('auth-view').classList.add('hidden');
+                document.getElementById('app-view').classList.remove('hidden');
+                document.getElementById('display-username').innerText = user.displayName || user.email;
+                document.getElementById('settings-uid').innerText = user.uid;
+                
+                const snap = await get(ref(db, 'users/' + user.uid));
+                if (snap.exists()) {
+                    const data = snap.val();
+                    document.getElementById('update-name-input').value = data.displayName || "";
+                    document.getElementById('update-color-input').value = data.color || "#3366ff";
+                    document.getElementById('theme-selector').value = data.theme || "light";
+                    document.body.setAttribute('data-theme', data.theme || "light");
+                }
+                
+                onValue(ref(db, 'rooms'), (s) => { allRooms = s.val() || {}; renderRooms(); });
+                listenForMessages('global', 'messages-list-inner', 'messages-container');
+                listenForContactsAndHistory();
+            } else {
+                document.getElementById('auth-view').classList.remove('hidden');
+                document.getElementById('app-view').classList.add('hidden');
+            }
+        });
+
+        window.signOutUser = () => signOut(auth);
+    </script>
+</body>
+</html>
