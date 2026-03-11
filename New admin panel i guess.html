@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Console</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 0; display: flex; height: 100vh; color: #333; background: #fff; }
+        #auth-screen { position: fixed; inset: 0; background: #fff; display: flex; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; }
+        .hidden { display: none !important; }
+        
+        aside { width: 220px; border-right: 1px solid #ccc; padding: 20px; display: flex; flex-direction: column; gap: 12px; background: #f8f8f8; }
+        main { flex: 1; padding: 25px; overflow-y: auto; }
+        
+        .view { display: none; }
+        .view.active { display: block; }
+        
+        .user-entry { border: 1px solid #ddd; margin-bottom: 10px; border-radius: 4px; background: #fff; }
+        .user-header { padding: 12px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+        .user-header:hover { background: #fcfcfc; }
+        .user-details { padding: 20px; border-top: 1px solid #eee; display: none; background: #fafafa; }
+        .user-details.show { display: block; }
+        
+        .room-card { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; background: #fff; }
+        .badge { font-size: 0.75em; padding: 3px 8px; border: 1px solid #888; border-radius: 3px; margin-left: 8px; background: #eee; text-transform: uppercase; }
+        
+        .pfp-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 12px; border: 1px solid #ddd; }
+        
+        .dm-monitor-box { background: #f4f4f4; border: 1px solid #ccc; padding: 15px; margin-top: 15px; max-height: 350px; overflow-y: auto; font-family: monospace; font-size: 13px; }
+        .dm-msg { border-bottom: 1px solid #e0e0e0; padding: 6px 0; }
+        
+        button { cursor: pointer; padding: 7px 14px; background: #fff; border: 1px solid #666; border-radius: 3px; font-size: 13px; }
+        button:hover { background: #f0f0f0; }
+        .btn-danger { color: #cc0000; border-color: #cc0000; }
+        .btn-danger:hover { background: #fee; }
+
+        input, textarea, select { padding: 10px; border: 1px solid #ccc; margin-bottom: 12px; border-radius: 3px; font-size: 14px; width: 100%; box-sizing: border-box; }
+        input[type="checkbox"] { width: auto; margin-right: 10px; }
+        
+        hr { border: 0; border-top: 1px solid #ddd; margin: 25px 0; }
+        .password-reveal { color: #d00; font-weight: bold; background: #fff0f0; padding: 10px; border: 1px solid #ffcccc; margin: 10px 0; display: inline-block; }
+        .sync-loader { font-size: 10px; color: #666; font-style: italic; margin-left: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-screen">
+        <h2>Administrative Login</h2>
+        <form id="login-form" style="width: 300px;">
+            <input type="email" id="email" placeholder="Email" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button type="submit" id="login-btn" style="width: 100%;">Login</button>
+        </form>
+        <p id="auth-error" style="color: red; margin-top: 15px;"></p>
+    </div>
+
+    <div id="admin-dashboard" class="hidden" style="display: flex; width: 100%;">
+        <aside>
+            <h3 style="margin-top: 0;">Console</h3>
+            <button onclick="navTo('users')">User Management</button>
+            <button onclick="navTo('rooms')">Room Management</button>
+            <button onclick="navTo('comms')">Announcements</button>
+            <div style="margin-top: auto; border-top: 1px solid #ccc; padding-top: 15px;">
+                <div id="role-tag" style="font-size: 12px; margin-bottom: 10px; font-weight: bold;"></div>
+                <button onclick="logout()" style="width: 100%;" class="btn-danger">Logout</button>
+            </div>
+        </aside>
+
+        <main>
+            <div id="view-users" class="view active">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3>All Users</h3>
+                    <div id="sync-status" class="sync-loader"></div>
+                </div>
+                <div id="user-list"></div>
+            </div>
+
+            <div id="view-rooms" class="view">
+                <h3>Rooms</h3>
+                <div style="padding: 20px; border: 1px solid #ccc; margin-bottom: 25px; background: #fafafa;">
+                    <strong>Create New Room</strong><br><br>
+                    <input type="text" id="new-room-name" placeholder="Room Name">
+                    <textarea id="new-room-desc" placeholder="Room Description" rows="2"></textarea>
+                    <label style="display: block; margin-bottom: 15px;">
+                        <input type="checkbox" id="new-room-private"> Make Room Private
+                    </label>
+                    <button onclick="createRoom()">Create Room</button>
+                </div>
+                <div id="room-list"></div>
+            </div>
+
+            <div id="view-comms" class="view">
+                <h3>Post Announcements</h3>
+                <strong>Newsletter Feed</strong><br>
+                <textarea id="news-text" rows="5" placeholder="Enter newsletter content..."></textarea>
+                <button onclick="postAnnouncement('newsletter')">Publish Newsletter</button>
+                <hr>
+                <strong>System Message</strong><br>
+                Target Room: <select id="bc-room"></select>
+                <textarea id="bc-text" rows="3" placeholder="Enter message text..."></textarea>
+                <button onclick="postAnnouncement('system')">Send as System</button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBl6MuVyJa_esK2nekEymWkc629-jgnsa0", 
+            authDomain: "nexus-messaging-app.firebaseapp.com",
+            databaseURL: "https://nexus-messaging-app-default-rtdb.firebaseio.com",
+            projectId: "nexus-messaging-app",
+            storageBucket: "nexus-messaging-app.appspot.com",
+            messagingSenderId: "45696700856",
+            appId: "1:45696700856:web:61d02082f4bc59a7213498"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+        
+        let currentUserRole = 'user';
+        let myUid = '';
+        let myEmail = '';
+        let myPass = '';
+        let processedUids = new Set();
+
+        document.getElementById('login-form').onsubmit = async (e) => {
+            e.preventDefault();
+            myEmail = document.getElementById('email').value;
+            myPass = document.getElementById('password').value;
+            try {
+                const cred = await auth.signInWithEmailAndPassword(myEmail, myPass);
+                myUid = cred.user.uid;
+                const snap = await db.ref(`users/${myUid}`).once('value');
+                const data = snap.val();
+
+                if (data && (data.role === 'admin' || data.role === 'creator')) {
+                    currentUserRole = data.role;
+                    document.getElementById('role-tag').innerText = "Logged in as: " + data.role;
+                    document.getElementById('auth-screen').classList.add('hidden');
+                    document.getElementById('admin-dashboard').classList.remove('hidden');
+                    init();
+                } else {
+                    alert("Unauthorized. Admin or Creator role required.");
+                    auth.signOut();
+                }
+            } catch (err) { document.getElementById('auth-error').innerText = err.message; }
+        };
+
+        function logout() { auth.signOut().then(() => location.reload()); }
+        function navTo(v) {
+            document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+            document.getElementById(`view-${v}`).classList.add('active');
+        }
+
+        function init() { loadUsers(); loadRooms(); }
+
+        function loadUsers() {
+            db.ref('users').on('value', (snap) => {
+                const users = snap.val() || {};
+                const container = document.getElementById('user-list');
+                container.innerHTML = '';
+                
+                for (let uid in users) {
+                    const u = users[uid];
+                    
+                    // AUTO SYNC LOGIC:
+                    // If email is missing or generic, and we have a password, and we haven't tried this session...
+                    if ((!u.email || u.email === "Fetch from Auth...") && u.password && u.password !== 'NOT LOGGED' && !processedUids.has(uid) && uid !== myUid) {
+                        autoSyncAuthEmail(uid, u.password);
+                    }
+
+                    if (uid === myUid) continue;
+                    const entry = document.createElement('div');
+                    entry.className = 'user-entry';
+                    
+                    const email = u.email || u.mail || "Syncing email...";
+                    const isBanned = !!u.banned;
+
+                    entry.innerHTML = `
+                        <div class="user-header" onclick="document.getElementById('det-${uid}').classList.toggle('show')">
+                            <div style="display:flex; align-items:center;">
+                                <img src="${u.pfp || ''}" class="pfp-img" onerror="this.src='https://via.placeholder.com/40'">
+                                <div>
+                                    <strong>${u.displayName || 'Unnamed User'}</strong><br>
+                                    <small>${email}</small>
+                                </div>
+                                <span class="badge">${u.role || 'user'}</span>
+                                ${isBanned ? '<span class="badge" style="color:red; border-color:red;">BANNED</span>' : ''}
+                            </div>
+                            <small style="color: #888;">${uid}</small>
+                        </div>
+                        <div id="det-${uid}" class="user-details">
+                            <p><strong>Database Email:</strong> ${email}</p>
+                            
+                            ${currentUserRole === 'creator' ? `
+                                <div>
+                                    <strong>Account Credentials:</strong><br>
+                                    <div class="password-reveal">PASSWORD: ${u.password || 'NOT LOGGED'}</div>
+                                </div>
+                                <div style="margin-top:15px; padding: 15px; border: 1px solid #ccc; background: #fff;">
+                                    <strong>Private Message Audit</strong><br>
+                                    <p style="font-size:12px; color:#666;">Enter the UID of the person they are chatting with:</p>
+                                    <input type="text" id="target-${uid}" placeholder="Target UID">
+                                    <button onclick="monitorDMs('${uid}')">Retrieve Messages</button>
+                                    <div id="dm-box-${uid}" class="dm-monitor-box hidden"></div>
+                                </div>
+                            ` : ''}
+
+                            <hr>
+                            <button onclick="banToggle('${uid}', ${isBanned})">${isBanned ? 'Unban User' : 'Ban User'}</button>
+                            ${currentUserRole === 'creator' ? `
+                                <button onclick="setRole('${uid}', '${u.role === 'admin' ? 'user' : 'admin'}')">Toggle Admin Authority</button>
+                                <button onclick="fullPurgeAccount('${uid}', '${email}', '${u.password}')" class="btn-danger">FULL PURGE (Auth + DB)</button>
+                            ` : ''}
+                        </div>
+                    `;
+                    container.appendChild(entry);
+                }
+            });
+        }
+
+        /**
+         * Automatically retrieves email from Auth area without user interaction.
+         */
+        async function autoSyncAuthEmail(uid, pass) {
+            processedUids.add(uid);
+            const status = document.getElementById('sync-status');
+            status.innerText = `Auto-syncing UIDs...`;
+
+            try {
+                // Background instances are safe for client-side multi-login simulation
+                const tempApp = firebase.initializeApp(firebaseConfig, "Sync_" + uid);
+                const tempAuth = tempApp.auth();
+                
+                // Note: Since we don't have the email yet, we have to rely on the fact that
+                // Firebase Auth allows sign-in. If the email is missing in DB, 
+                // we'd typically need the email to sign in. 
+                // However, we can use the "Fetch from Auth" placeholder to store the last known email if available.
+                // If the email is COMPLETELY unknown, we can't sign in via Client SDK.
+                
+                // FIX: We attempt to get the email from the Database's "mail" field if "email" is missing.
+                const snap = await db.ref(`users/${uid}`).once('value');
+                const userData = snap.val();
+                const loginAttemptEmail = userData.email || userData.mail || "";
+
+                if (loginAttemptEmail && loginAttemptEmail.includes('@')) {
+                    const cred = await tempAuth.signInWithEmailAndPassword(loginAttemptEmail, pass);
+                    const realEmail = cred.user.email;
+                    await db.ref(`users/${uid}/email`).set(realEmail);
+                }
+                
+                await tempAuth.signOut();
+                await tempApp.delete();
+            } catch (e) {
+                console.warn("Auto-sync failed for " + uid, e.message);
+            } finally {
+                status.innerText = "";
+            }
+        }
+
+        async function monitorDMs(uid1) {
+            const uid2 = document.getElementById(`target-${uid1}`).value.trim();
+            if(!uid2) return alert("Partner UID is required.");
+            const dmId = [uid1, uid2].sort().join('_dm_');
+            const box = document.getElementById(`dm-box-${uid1}`);
+            box.classList.remove('hidden');
+            box.innerHTML = 'Fetching transcripts...';
+
+            db.ref(`messages/${dmId}`).once('value', (s) => {
+                const msgs = s.val() || {};
+                box.innerHTML = `<strong>Transcript: ${dmId}</strong><hr>`;
+                Object.values(msgs).forEach(m => {
+                    const d = document.createElement('div');
+                    d.className = 'dm-msg';
+                    d.innerHTML = `<strong>${m.displayName}:</strong> ${m.text}`;
+                    box.appendChild(d);
+                });
+                if(Object.keys(msgs).length === 0) box.innerHTML += "No message history found.";
+            });
+        }
+
+        async function createRoom() {
+            const name = document.getElementById('new-room-name').value;
+            const desc = document.getElementById('new-room-desc').value;
+            const isPrivate = document.getElementById('new-room-private').checked;
+            if(!name) return;
+
+            const roomRef = db.ref('rooms').push();
+            await roomRef.set({
+                name: name,
+                description: desc,
+                isPrivate: isPrivate,
+                accessCode: isPrivate ? Math.random().toString(36).substring(2, 8).toUpperCase() : null,
+                createdBy: myUid,
+                timestamp: Date.now()
+            });
+            document.getElementById('new-room-name').value = '';
+            document.getElementById('new-room-desc').value = '';
+            alert("Room created successfully.");
+        }
+
+        function loadRooms() {
+            db.ref('rooms').on('value', (snap) => {
+                const rooms = snap.val() || {};
+                const list = document.getElementById('room-list');
+                const bcSelect = document.getElementById('bc-room');
+                list.innerHTML = '';
+                bcSelect.innerHTML = '<option value="global">Global (All Users)</option>';
+
+                const ids = Object.keys(rooms);
+                if(!ids.includes('global')) ids.unshift('global');
+
+                ids.forEach(rid => {
+                    const r = rooms[rid] || { name: "Global", description: "Default entry channel" };
+                    if(rid !== 'global') bcSelect.innerHTML += `<option value="${rid}">${r.name}</option>`;
+
+                    const card = document.createElement('div');
+                    card.className = 'room-card';
+                    card.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; align-items: flex-start;">
+                            <div>
+                                <strong>${r.name}</strong><br>
+                                <small style="color:#777;">ID: ${rid}</small>
+                            </div>
+                            <span class="badge" style="background:${r.isPrivate ? '#fff0f0' : '#f0fff0'}">${r.isPrivate ? 'Private' : 'Public'}</span>
+                        </div>
+                        <p style="margin: 10px 0;">${r.description}</p>
+                        ${r.isPrivate ? `<div style="margin-bottom:10px; font-size:12px;"><strong>Access Code:</strong> ${r.accessCode}</div>` : ''}
+                        <button onclick="wipeRoom('${rid}')">Clear All Messages</button>
+                        ${rid !== 'global' ? `<button onclick="deleteRoom('${rid}')" class="btn-danger">Delete Room</button>` : ''}
+                    `;
+                    list.appendChild(card);
+                });
+            });
+        }
+
+        async function manualUpdate(uid, field) {
+            const val = prompt(`Enter new value for ${field}:`);
+            if(val !== null) await db.ref(`users/${uid}/${field}`).set(val);
+        }
+
+        async function banToggle(uid, banned) {
+            await db.ref(`users/${uid}/banned`).set(!banned);
+        }
+
+        async function setRole(uid, role) {
+            await db.ref(`users/${uid}/role`).set(role);
+        }
+
+        async function fullPurgeAccount(uid, email, pass) {
+            if(!pass || pass === 'NOT LOGGED') return alert("Cannot purge: Password not found in DB.");
+            if(!confirm(`WARNING: This will sign you out temporarily to delete ${email} from Auth and Database. Continue?`)) return;
+
+            try {
+                // Delete DB record
+                await db.ref(`users/${uid}`).remove();
+                // Sign in as user
+                const targetCred = await auth.signInWithEmailAndPassword(email, pass);
+                // Delete Auth record
+                await targetCred.user.delete();
+                
+                alert(`Account fully purged. Re-authenticating admin session...`);
+                await auth.signInWithEmailAndPassword(myEmail, myPass);
+                location.reload();
+            } catch (e) {
+                alert("Purge Error: " + e.message);
+                await auth.signInWithEmailAndPassword(myEmail, myPass);
+            }
+        }
+
+        async function wipeRoom(rid) {
+            if(confirm("Permanently delete every message in this room?")) {
+                await db.ref(`messages/${rid}`).remove();
+            }
+        }
+
+        async function deleteRoom(rid) {
+            if(confirm("Completely remove this room and all history?")) {
+                await db.ref(`rooms/${rid}`).remove();
+                await db.ref(`messages/${rid}`).remove();
+            }
+        }
+
+        async function postAnnouncement(type) {
+            if(type === 'newsletter') {
+                const t = document.getElementById('news-text').value;
+                if(!t) return;
+                await db.ref('newsletter').push({ content: t, timestamp: Date.now(), author: "Admin" });
+                document.getElementById('news-text').value = '';
+                alert("Newsletter updated.");
+            } else {
+                const rid = document.getElementById('bc-room').value;
+                const t = document.getElementById('bc-text').value;
+                if(!t) return;
+                await db.ref(`messages/${rid}`).push({
+                    uid: "SYSTEM", displayName: "System", text: t, timestamp: Date.now(), isSystem: true, role: "admin"
+                });
+                document.getElementById('bc-text').value = '';
+                alert("System message sent.");
+            }
+        }
+    </script>
+</body>
+</html>
