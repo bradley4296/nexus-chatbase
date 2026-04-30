@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus | Chat With the World</title>
+    <style id="custom-theme-styles"></style>
+    <style id="accessibility-styles"></style>
+    <style>
+        /* THEME VARIABLES */
+        :root {
+            --bg: white;
+            --text: black;
+            --border: #ccc;
+            --container-bg: #fafafa;
+            --hr: #eee;
+            --accent: #3366ff;
+            --btn-bg: #efefef;
+            --overlay: rgba(255, 255, 255, 0.9);
+            --danger: #ff4d4d;
+            --reply-bg: #f0f0f0;
+            --modal-bg: rgba(0,0,0,0.92);
+            --notification: #ff3e3e;
+            --input-bg: #fff;
+            --online: #22c55e;
+            --offline: #94a3b8;
+            --base-font-size: 16px;
+            --max-img-h: 450px;
+        }
+
+        [data-theme="dark"] {
+            --bg: #1a1a1a;
+            --text: #e0e0e0;
+            --border: #444;
+            --container-bg: #222;
+            --hr: #333;
+            --btn-bg: #333;
+            --overlay: rgba(26, 26, 26, 0.9);
+            --reply-bg: #2d2d2d;
+            --input-bg: #2a2a2a;
+        }
+
+        [data-theme="midnight"] {
+            --bg: #00040a;
+            --text: #94a3b8;
+            --border: #1e293b;
+            --container-bg: #020617;
+            --hr: #1e293b;
+            --btn-bg: #1e293b;
+            --overlay: rgba(0, 4, 10, 0.9);
+            --reply-bg: #0f172a;
+            --input-bg: #1e293b;
+        }
+
+        [data-theme="neon"] {
+            --bg: #0d001a;
+            --text: #00ff00;
+            --border: #ff00ff;
+            --container-bg: #1a0033;
+            --hr: #ff00ff;
+            --btn-bg: #1a0033;
+            --overlay: rgba(13, 0, 26, 0.9);
+            --reply-bg: #2a004d;
+            --input-bg: #1a0033;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 20px;
+            line-height: 1.4;
+            background-color: var(--bg);
+            color: var(--text);
+            transition: background 0.3s, color 0.3s;
+            margin: 0;
+            font-size: var(--base-font-size);
+            overflow-x: hidden;
+        }
+
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .hidden { display: none !important; }
+        hr { border: 0; border-top: 1px solid var(--hr); margin: 20px 0; }
+
+        input, button, select { 
+            padding: 10px 12px;
+            margin: 4px 0; 
+            background: var(--btn-bg); 
+            color: var(--text); 
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.9em;
+            outline: none;
+        }
+
+        input:focus { border-color: var(--accent); }
+        input { background: var(--input-bg); }
+
+        button:hover { opacity: 0.8; cursor: pointer; }
+        .btn-danger { background: var(--danger); color: white; border: none; }
+        .btn-accent { background: var(--accent); color: white; border: none; }
+
+        .clickable { color: var(--accent); cursor: pointer; text-decoration: underline; }
+        
+        .messages-area {
+            border: 1px solid var(--border); 
+            height: 550px; 
+            overflow-y: auto; 
+            padding: 15px;
+            background: var(--container-bg);
+            margin: 10px 0;
+            position: relative;
+            border-radius: 8px;
+        }
+
+        .message-item {
+            border-bottom: 1px solid var(--hr);
+            margin-bottom: 12px;
+            padding-bottom: 16px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            position: relative;
+        }
+
+        .message-content { flex-grow: 1; min-width: 0; }
+
+        .message-image-container {
+            margin-top: 8px;
+            max-width: 550px;
+            width: 100%;
+            position: relative;
+        }
+
+        .message-image {
+            width: 100%;
+            height: auto;
+            max-height: var(--max-img-h);
+            object-fit: contain;
+            border-radius: 8px;
+            display: block;
+            border: 1px solid var(--border);
+            cursor: zoom-in;
+            background: #000;
+        }
+
+        #lightbox-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--modal-bg);
+            backdrop-filter: blur(8px);
+            z-index: 5000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: zoom-out;
+            padding: 20px;
+        }
+
+        #lightbox-image {
+            max-width: 95%;
+            max-height: 85vh;
+            object-fit: contain;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            border-radius: 4px;
+        }
+
+        .reply-preview-msg {
+            background: var(--reply-bg);
+            border-left: 3px solid var(--accent);
+            padding: 4px 8px;
+            font-size: 0.8em;
+            margin-bottom: 4px;
+            border-radius: 4px;
+            opacity: 0.8;
+        }
+
+        .pfp-wrapper {
+            width: 44px;
+            height: 44px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            overflow: hidden;
+            background: #eee;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .pfp-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            border: 2px solid var(--bg);
+        }
+        .status-online { background: var(--online); }
+        .status-offline { background: var(--offline); }
+
+        .sender { font-weight: bold; font-size: 0.95em; display: flex; align-items: center; gap: 8px; margin-bottom: 4px; cursor: pointer; }
+        .sender:hover { text-decoration: underline; }
+        .timestamp { font-weight: normal; font-size: 0.75em; opacity: 0.5; text-decoration: none !important; pointer-events: none; }
+
+        #tab-nav { margin-bottom: 20px; }
+        .tab-btn {
+            padding: 10px 20px;
+            cursor: pointer;
+            margin-right: 8px;
+            font-weight: bold;
+        }
+        .tab-btn.active {
+            background: var(--text);
+            color: var(--bg);
+            border-color: var(--text);
+        }
+
+        .list-container {
+            border: 1px solid var(--border);
+            height: 350px;
+            overflow-y: auto;
+            background: var(--container-bg);
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        .item-row {
+            padding: 10px;
+            border-bottom: 1px solid var(--hr);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .create-channel-panel {
+            background: var(--container-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        /* CROPPER STYLES */
+        .crop-container {
+            width: 100%;
+            max-width: 300px;
+            height: 300px;
+            background: #111;
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+            margin: 15px auto;
+            cursor: move;
+            touch-action: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #crop-image {
+            position: absolute;
+            user-select: none;
+            pointer-events: none;
+            transform-origin: center;
+        }
+        .crop-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 2px solid var(--accent);
+            box-sizing: border-box;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.6);
+            pointer-events: none;
+        }
+        .crop-overlay.banner-crop {
+            border-radius: 0;
+            height: 120px;
+            top: 90px;
+        }
+
+        .crop-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .crop-control-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .crop-control-row label {
+            width: 60px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .crop-control-row input {
+            flex-grow: 1;
+            margin: 0;
+        }
+
+        .indicator-bar {
+            background: var(--reply-bg);
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-bottom: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85em;
+            border-radius: 6px 6px 0 0;
+        }
+
+        .msg-actions { opacity: 0; transition: opacity 0.2s; position: absolute; right: 10px; top: 5px; background: var(--container-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px; display: flex; gap: 4px; }
+        .message-item:hover .msg-actions { opacity: 1; }
+
+        .nexus-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+        }
+        .modal-content {
+            background: var(--bg);
+            padding: 0;
+            border-radius: 12px;
+            max-width: 450px;
+            width: 95%;
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            overflow: hidden;
+            text-align: center;
+        }
+
+        /* PROFILE MODAL SPECIALS */
+        .profile-banner {
+            width: 100%;
+            height: 140px;
+            background: var(--accent);
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+        .profile-pfp-overlap {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            border: 4px solid var(--bg);
+            position: absolute;
+            bottom: -45px;
+            left: 20px;
+            background: #eee;
+            overflow: hidden;
+        }
+
+        .action-icon-btn {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--btn-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0 15px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        /* THEME BUILDER */
+        .theme-builder-panel {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--hr);
+        }
+        .theme-builder-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .theme-builder-row input[type="color"] {
+            width: 40px; height: 30px; padding: 0; border: none; cursor: pointer;
+        }
+
+        .security-panel {
+            margin-top: 25px;
+            padding: 20px;
+            border: 1px solid var(--danger);
+            border-radius: 8px;
+            background: var(--container-bg);
+        }
+    </style>
+</head>
+<body data-theme="light">
+
+    <div id="loading-screen">
+        <h1 id="loading-text">LOADING NEXUS...</h1>
+        <p id="loading-subtext">Tip: be nice!</p>
+    </div>
+
+    <!-- RE-AUTHENTICATION MODAL -->
+    <div id="reauth-modal" class="nexus-modal hidden">
+        <div class="modal-content" style="padding: 24px; text-align: left;">
+            <h2 style="margin-top: 0;">Confirm Password</h2>
+            <p>Please enter your current password to continue.</p>
+            <input type="password" id="reauth-password-input" placeholder="Current password..." style="width: 100%; margin-bottom: 15px; box-sizing: border-box;">
+            <div style="display: flex; gap: 10px;">
+                <button onclick="closeReauthModal()" style="flex: 1;">Cancel</button>
+                <button id="reauth-confirm-btn" class="btn-accent" style="flex: 1;">Verify</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ROOM ACCESS MODAL (PRIVATE ROOMS) -->
+    <div id="room-access-modal" class="nexus-modal hidden">
+        <div class="modal-content" style="padding: 24px; text-align: left;">
+            <h2 style="margin-top: 0;">🔒 Locked Channel</h2>
+            <p id="room-access-msg">This room requires an access code.</p>
+            <input type="text" id="room-access-input" placeholder="Enter code..." style="width: 100%; margin-bottom: 15px; box-sizing: border-box;">
+            <div style="display: flex; gap: 10px;">
+                <button onclick="closeAccessModal()" style="flex: 1;">Cancel</button>
+                <button id="room-access-confirm" class="btn-accent" style="flex: 1;">Unlock</button>
+            </div>
+            <p id="room-access-error" style="color: var(--danger); font-size: 12px; margin-top: 10px; display: none;">Invalid access code.</p>
+        </div>
+    </div>
+
+    <!-- LIGHTBOX -->
+    <div id="lightbox-overlay" class="hidden" onclick="closeLightbox()">
+        <button style="position:absolute; top:20px; right:20px; font-size:30px; color:white; background:none; border:none; cursor:pointer;">✕</button>
+        <img id="lightbox-image" src="" onclick="event.stopPropagation()">
+    </div>
+
+    <!-- CROPPER MODAL -->
+    <div id="crop-modal" class="nexus-modal hidden">
+        <div class="modal-content" style="max-width: 450px; padding: 20px;">
+            <h3 id="crop-title">Crop Media</h3>
+            <div class="crop-container" id="crop-box">
+                <img id="crop-image" src="">
+                <div id="crop-indicator" class="crop-overlay"></div>
+            </div>
+            
+            <div class="crop-controls">
+                <div class="crop-control-row">
+                    <label>Zoom</label>
+                    <input type="range" id="crop-zoom" min="0.1" max="5" step="0.01" value="1">
+                </div>
+                <div class="crop-control-row">
+                    <label>Move X</label>
+                    <input type="range" id="crop-move-x" min="-300" max="300" step="1" value="0">
+                </div>
+                <div class="crop-control-row">
+                    <label>Move Y</label>
+                    <input type="range" id="crop-move-y" min="-300" max="300" step="1" value="0">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="cancelCrop()" style="flex: 1;">Cancel</button>
+                <button onclick="confirmCrop()" class="btn-accent" style="flex: 1;">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROFILE VIEW MODAL -->
+    <div id="profile-modal" class="nexus-modal hidden">
+        <div class="modal-content" style="text-align: left;">
+            <div id="modal-banner" class="profile-banner">
+                <button onclick="closeProfile()" style="position: absolute; right: 10px; top: 10px; border-radius: 50%; width: 30px; height:30px; background: rgba(0,0,0,0.5); color: white; border: none; cursor:pointer;">✕</button>
+                <div class="profile-pfp-overlap">
+                    <img id="modal-pfp" style="width:100%; height:100%; object-fit: cover;">
+                </div>
+            </div>
+            <div style="padding: 60px 20px 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <h2 id="modal-username" style="margin:0;"></h2>
+                        <div id="modal-status-indicator" style="display: flex; align-items: center; gap: 6px; font-size: 0.85em; margin-top: 4px;">
+                            <div class="status-dot" style="position: static; display: inline-block;"></div>
+                            <span id="modal-status-text">Offline</span>
+                        </div>
+                    </div>
+                </div>
+                <p id="modal-uid" style="font-size: 0.7em; opacity: 0.5; margin-top: 10px; font-family: monospace;"></p>
+                <hr style="margin: 15px 0;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <button id="modal-dm-btn" class="btn-accent">Message</button>
+                    <button id="modal-friend-btn">Add Contact</button>
+                    <button id="modal-block-btn" class="btn-danger">Block User</button>
+                    <button onclick="copyUID()">Copy ID</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AUTHENTICATION -->
+    <div id="auth-view" class="hidden">
+        <h1 id="auth-title">Log back into Nexus</h1>
+        <form id="auth-form">
+            <div id="name-field" class="hidden">
+                <label>Display Name:</label><br>
+                <input type="text" id="auth-name" placeholder="John Doe"><br>
+            </div>
+            <label>Email:</label><br>
+            <input type="email" id="auth-email" required><br>
+            <label>Password:</label><br>
+            <input type="password" id="auth-password" required><br>
+            <button type="submit" id="auth-submit-btn">Login</button>
+        </form>
+        <br>
+        <button id="toggle-auth">Switch to Register</button>
+        <p id="auth-error" style="color: red;"></p>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="app-view" class="hidden">
+        <header style="display: flex; justify-content: space-between; align-items: center; padding: 0 10px;">
+            <div><h1>NEXUS</h1></div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="pfp-wrapper" style="width: 36px; height: 36px;" onclick="switchTab('profile')">
+                    <img id="header-pfp" class="pfp-img" src="">
+                </div>
+                <span><span id="display-username" style="font-weight: bold;"></span></span>
+                <button onclick="signOutUser()">Logout</button>
+            </div>
+        </header>
+
+        <div id="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('chat')">CHANNELS</button>
+            <button class="tab-btn" onclick="switchTab('contacts')">CONTACTS</button>
+            <button class="tab-btn" onclick="switchTab('profile')">PROFILE</button>
+            <button class="tab-btn" onclick="switchTab('settings')">SETTINGS</button>
+        </div>
+        
+        <hr>
+
+        <!-- CHANNELS TAB -->
+        <section id="tab-chat" class="tab-content">
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 280px;">
+                    <h2>Channels</h2>
+                    <div id="room-list" class="list-container"></div>
+                    <div class="create-channel-panel">
+                        <h3>Create Channel</h3>
+                        <input type="text" id="new-room-name" placeholder="Room Name" style="width:100%;">
+                        <div style="display:flex; align-items:center; gap:8px; margin: 10px 0;">
+                            <input type="checkbox" id="room-is-private" style="width:18px; height:18px;">
+                            <label for="room-is-private" style="font-size: 0.9em;">Private (Code Required)</label>
+                        </div>
+                        <input type="text" id="room-code" placeholder="Code (Optional)" style="width:100%;">
+                        <button onclick="handleCreateRoom()" class="btn-accent" style="width:100%; margin-top: 10px;">Create</button>
+                    </div>
+                </div>
+                <div style="flex: 3; min-width: 300px;">
+                    <h2># <span id="current-room-display">global</span></h2>
+                    <div id="messages-container" class="messages-area"><div id="messages-list-inner"></div></div>
+                    <div id="reply-bar" class="indicator-bar hidden">
+                        <span>Replying to <strong id="reply-target-name"></strong></span>
+                        <button onclick="cancelReply()">✕</button>
+                    </div>
+                    <form id="message-form" style="display: flex; gap: 8px;">
+                        <input type="file" id="msg-img-upload" accept="image/*" class="hidden" onchange="handleMessageMedia(this, 'channel')">
+                        <button type="button" onclick="document.getElementById('msg-img-upload').click()" class="action-icon-btn">+</button>
+                        <input type="text" id="message-input" placeholder="Say something..." style="flex-grow: 1;" autocomplete="off">
+                        <button type="submit" class="btn-accent">Send</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- CONTACTS TAB -->
+        <section id="tab-contacts" class="tab-content hidden">
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 300px;">
+                    <h2>Contacts</h2>
+                    <form id="add-contact-form" style="display: flex; gap: 5px;">
+                        <input type="text" id="contact-uid-input" placeholder="Enter UID" required style="flex-grow: 1;">
+                        <button type="submit">Add</button>
+                    </form>
+                    <div id="contacts-list" class="list-container" style="margin-top: 10px;"></div>
+                </div>
+                <div style="flex: 2; min-width: 300px;">
+                    <h2 id="dm-title">Direct Messages</h2>
+                    <div id="dm-messages-container" class="messages-area"><div id="dm-list-inner"></div></div>
+                    <form id="dm-message-form" style="display: flex; gap: 5px;" class="hidden">
+                        <input type="file" id="dm-img-upload" accept="image/*" class="hidden" onchange="handleMessageMedia(this, 'dm')">
+                        <button type="button" onclick="document.getElementById('dm-img-upload').click()" class="action-icon-btn">+</button>
+                        <input type="text" id="dm-message-input" placeholder="Type a message..." style="flex-grow: 1;" autocomplete="off">
+                        <button type="submit" class="btn-accent">Send</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- PROFILE TAB -->
+        <section id="tab-profile" class="tab-content hidden">
+            <div style="display: flex; gap: 40px; flex-wrap: wrap;">
+                <div style="flex: 1;">
+                    <h2>Edit Identity</h2>
+                    <div style="background: var(--container-bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border);">
+                        <label>Display Name</label><br>
+                        <input type="text" id="update-name-input" style="width: 100%"><br><br>
+                        <label>Name Color</label><br>
+                        <input type="color" id="update-color-input" style="height:40px; width:60px;"><br><br>
+                        <button onclick="handleUpdateProfile()" style="width: 100%;" class="btn-accent">Update Profile</button>
+                        <hr>
+                        <p style="font-size: 0.8em; opacity: 0.6;">Your UID: <code id="settings-uid"></code></p>
+                    </div>
+                </div>
+                <div style="flex: 1;">
+                    <h2>Aesthetics</h2>
+                    <div style="background: var(--container-bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border);">
+                        <label>Avatar</label>
+                        <div class="pfp-wrapper" style="width: 80px; height: 80px; margin: 10px 0;">
+                            <img id="settings-pfp-preview" class="pfp-img" src="">
+                        </div>
+                        <input type="file" id="pfp-upload" accept="image/*" class="hidden" onchange="initCrop(this, 'pfp')">
+                        <button onclick="document.getElementById('pfp-upload').click()" class="btn-accent">Upload Avatar</button>
+                        
+                        <hr>
+                        
+                        <label>Profile Banner</label>
+                        <div id="settings-banner-preview" style="width: 100%; height: 80px; background: #eee; margin: 10px 0; border-radius: 4px; background-size: cover; background-position: center;"></div>
+                        <input type="file" id="banner-upload" accept="image/*" class="hidden" onchange="initCrop(this, 'banner')">
+                        <button onclick="document.getElementById('banner-upload').click()" class="btn-accent">Upload Banner</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SETTINGS TAB -->
+        <section id="tab-settings" class="tab-content hidden">
+            <div style="max-width: 600px; margin-bottom: 50px;">
+                <h2>Preferences</h2>
+                <div style="background: var(--container-bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border);">
+                    <label>Theme</label><br>
+                    <select id="theme-selector" style="width: 100%" onchange="handleThemeChangeRequest(this.value)">
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                        <option value="midnight">Midnight</option>
+                        <option value="neon">Neon</option>
+                    </select>
+                    
+                    <div class="theme-builder-panel">
+                        <h3>Custom Theme Builder</h3>
+                        <div class="theme-builder-row">
+                            <label>Background</label>
+                            <input type="color" id="builder-bg" value="#ffffff">
+                        </div>
+                        <div class="theme-builder-row">
+                            <label>Text Color</label>
+                            <input type="color" id="builder-text" value="#000000">
+                        </div>
+                        <div class="theme-builder-row">
+                            <label>Accent Color</label>
+                            <input type="color" id="builder-accent" value="#3366ff">
+                        </div>
+                        <input type="text" id="builder-name" placeholder="Preset Name (e.g. My Pink Theme)" style="width: 100%;">
+                        <button onclick="saveCustomThemePreset()" class="btn-accent" style="width: 100%; margin-top: 5px;">Save Theme Preset</button>
+                    </div>
+
+                    <div style="margin-top: 25px;">
+                        <h3>Accessibility</h3>
+                        <label>Font Size (<span id="font-val-label">16</span>px)</label>
+                        <input type="range" id="acc-font-range" min="12" max="24" value="16" oninput="liveUpdateAccessibility()" style="width: 100%;">
+                        
+                        <label style="margin-top: 15px; display: block;">Max Image Height (<span id="img-val-label">450</span>px)</label>
+                        <input type="range" id="acc-img-h-range" min="100" max="800" value="450" oninput="liveUpdateAccessibility()" style="width: 100%;">
+                    </div>
+                    
+                    <button onclick="handleUpdateSettings()" style="width: 100%; margin-top: 25px; padding: 15px;" class="btn-accent">Save All Preferences</button>
+                </div>
+
+                <div class="security-panel">
+                    <h2 style="color: var(--danger); margin-top: 0;">Account Security</h2>
+                    <p style="font-size: 0.9em; opacity: 0.7;">Update your login credentials or close your account.</p>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label>New Email</label><br>
+                        <input type="email" id="new-email-input" placeholder="Enter new email..." style="width: 100%;">
+                        <button onclick="requestEmailChange()" style="width: 100%; margin-top: 5px;">Update Email</button>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label>New Password</label><br>
+                        <input type="password" id="new-password-input" placeholder="Enter new password..." style="width: 100%;">
+                        <button onclick="requestPasswordChange()" style="width: 100%; margin-top: 5px;">Update Password</button>
+                    </div>
+
+                    <hr style="border-top-color: var(--danger); opacity: 0.3;">
+                    
+                    <div style="margin-top: 20px;">
+                        <h4 style="color: var(--danger); margin: 5px 0;">Danger Zone</h4>
+                        <p style="font-size: 0.8em; opacity: 0.8;">Deleting your account is permanent. All your profile data will be purged.</p>
+                        <button onclick="requestAccountDeletion()" class="btn-danger" style="width: 100%;">Delete My Account Permanently</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <canvas id="crop-canvas" class="hidden"></canvas>
+
+    <!-- FIREBASE COMPAT SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <script>
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyATAYoqLU-_pIn6Zw1Bn9JIjRw3_l6FMuE",
+  authDomain: "nexus-messaging-app-ae381.firebaseapp.com",
+  databaseURL: "https://nexus-messaging-app-ae381-default-rtdb.firebaseio.com",
+  projectId: "nexus-messaging-app-ae381",
+  storageBucket: "nexus-messaging-app-ae381.firebasestorage.app",
+  messagingSenderId: "609679950522",
+  appId: "1:609679950522:web:de33b4705f1132fb723883",
+  measurementId: "G-YKJ3R4P6RR"
+};
+
+        let auth, db;
+        let isSignUp = false, currentRoomId = 'global', currentDmPartnerId = null;
+        let messageListener = null, dmListener = null, allRooms = {}, activeReply = null; 
+        let tempPfpData = null, tempBannerData = null, currentUserData = null;
+
+        // CROPPER STATE
+        let cropState = { type: 'pfp', img: null, x: 0, y: 0, zoom: 1, isDragging: false };
+
+        window.onload = function() {
+            try {
+                firebase.initializeApp(firebaseConfig);
+                auth = firebase.auth();
+                db = firebase.database();
+                document.getElementById('loading-screen').classList.add('hidden');
+                startApp();
+            } catch (err) {
+                console.error("Firebase Initialization Failed:", err);
+            }
+        };
+
+        function startApp() {
+            auth.onAuthStateChanged(async (user) => {
+                if(user) {
+                    setupPresence(user.uid);
+                    db.ref('users/' + user.uid).on('value', (s) => {
+                        currentUserData = s.val() || {};
+                        updateUIFromData(user.uid);
+                    });
+                    document.getElementById('auth-view').classList.add('hidden');
+                    document.getElementById('app-view').classList.remove('hidden');
+                    db.ref('rooms').on('value', (s) => { allRooms = s.val() || {}; renderRooms(); });
+                    listenForMessages('global', 'messages-list-inner', 'messages-container');
+                    syncContacts();
+                } else {
+                    document.getElementById('auth-view').classList.remove('hidden');
+                    document.getElementById('app-view').classList.add('hidden');
+                }
+            });
+        }
+
+        function setupPresence(uid) {
+            const statusRef = db.ref(`users/${uid}/status`);
+            db.ref(".info/connected").on("value", (snap) => {
+                if (snap.val() === true) {
+                    statusRef.onDisconnect().set("offline");
+                    statusRef.set("online");
+                }
+            });
+        }
+
+        function updateUIFromData(uid) {
+            if(!currentUserData) return;
+            document.getElementById('display-username').innerText = currentUserData.displayName;
+            document.getElementById('settings-uid').innerText = uid;
+            document.getElementById('update-name-input').value = currentUserData.displayName;
+            document.getElementById('update-color-input').value = currentUserData.color || '#3366ff';
+            document.getElementById('header-pfp').src = currentUserData.pfp || '';
+            document.getElementById('settings-pfp-preview').src = currentUserData.pfp || '';
+            document.getElementById('settings-banner-preview').style.backgroundImage = currentUserData.banner ? `url(${currentUserData.banner})` : 'none';
+            
+            // Preferences
+            document.getElementById('theme-selector').value = currentUserData.theme || 'light';
+            document.getElementById('acc-font-range').value = currentUserData.fontSize || 16;
+            document.getElementById('acc-img-h-range').value = currentUserData.imgSize || 450;
+            
+            refreshThemeDropdown();
+            
+            tempPfpData = currentUserData.pfp;
+            tempBannerData = currentUserData.banner;
+            
+            applyTheme(currentUserData.theme || 'light');
+            applyFontSize(currentUserData.fontSize || 16);
+            applyImageSize(currentUserData.imgSize || 450);
+        }
+
+        // --- ACCOUNT SECURITY ACTIONS ---
+        function reauthenticate(password) {
+            const user = auth.currentUser;
+            const credential = firebase.auth.EmailAuthProvider.credential(user.email, password);
+            return user.reauthenticateWithCredential(credential);
+        }
+
+        function openReauthModal(onSuccess) {
+            const modal = document.getElementById('reauth-modal');
+            const input = document.getElementById('reauth-password-input');
+            const confirmBtn = document.getElementById('reauth-confirm-btn');
+            
+            input.value = '';
+            modal.classList.remove('hidden');
+            input.focus();
+
+            confirmBtn.onclick = async () => {
+                try {
+                    await reauthenticate(input.value);
+                    modal.classList.add('hidden');
+                    onSuccess();
+                } catch (err) {
+                    alert("Verification failed: " + err.message);
+                }
+            };
+        }
+
+        window.closeReauthModal = () => document.getElementById('reauth-modal').classList.add('hidden');
+
+        window.requestEmailChange = () => {
+            const newEmail = document.getElementById('new-email-input').value.trim();
+            if(!newEmail) return alert("Please enter a new email.");
+            openReauthModal(async () => {
+                try {
+                    await auth.currentUser.updateEmail(newEmail);
+                    alert("Email updated successfully!");
+                    document.getElementById('new-email-input').value = '';
+                } catch (err) { alert(err.message); }
+            });
+        };
+
+        window.requestPasswordChange = () => {
+            const newPass = document.getElementById('new-password-input').value;
+            if(!newPass || newPass.length < 6) return alert("Password must be at least 6 characters.");
+            openReauthModal(async () => {
+                try {
+                    await auth.currentUser.updatePassword(newPass);
+                    alert("Password updated successfully!");
+                    document.getElementById('new-password-input').value = '';
+                } catch (err) { alert(err.message); }
+            });
+        };
+
+        window.requestAccountDeletion = () => {
+            if(!confirm("Are you ABSOLUTELY sure? This will delete all your data and access to Nexus.")) return;
+            openReauthModal(async () => {
+                try {
+                    const uid = auth.currentUser.uid;
+                    // Wipe database record
+                    await db.ref(`users/${uid}`).remove();
+                    // Wipe auth record
+                    await auth.currentUser.delete();
+                    alert("Account successfully deleted.");
+                } catch (err) { alert(err.message); }
+            });
+        };
+
+        // --- THEME & ACCESSIBILITY ---
+        window.handleThemeChangeRequest = (theme) => {
+            applyTheme(theme);
+        };
+
+        window.liveUpdateAccessibility = () => {
+            const size = document.getElementById('acc-font-range').value;
+            const imgH = document.getElementById('acc-img-h-range').value;
+            document.getElementById('font-val-label').innerText = size;
+            document.getElementById('img-val-label').innerText = imgH;
+            applyFontSize(size);
+            applyImageSize(imgH);
+        };
+
+        function applyTheme(name) {
+            const presets = currentUserData.themePresets || {};
+            const styleEl = document.getElementById('custom-theme-styles');
+            
+            if (presets[name]) {
+                const t = presets[name];
+                document.body.removeAttribute('data-theme');
+                styleEl.innerHTML = `
+                    :root {
+                        --bg: ${t.bg} !important;
+                        --text: ${t.text} !important;
+                        --accent: ${t.accent} !important;
+                        --container-bg: ${t.bg} !important;
+                        --btn-bg: ${t.accent}33 !important;
+                        --border: ${t.text}44 !important;
+                        --hr: ${t.text}22 !important;
+                        --input-bg: ${t.bg} !important;
+                    }
+                `;
+            } else {
+                styleEl.innerHTML = '';
+                document.body.setAttribute('data-theme', name);
+            }
+        }
+
+        function refreshThemeDropdown() {
+            const select = document.getElementById('theme-selector');
+            const presets = currentUserData.themePresets || {};
+            
+            Array.from(select.options).forEach(opt => {
+                if (opt.dataset.custom) opt.remove();
+            });
+
+            Object.keys(presets).forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.innerText = `★ ${name}`;
+                opt.dataset.custom = "true";
+                select.appendChild(opt);
+            });
+            select.value = currentUserData.theme || 'light';
+        }
+
+        window.saveCustomThemePreset = async () => {
+            const name = document.getElementById('builder-name').value.trim();
+            if(!name) return;
+            
+            const preset = {
+                bg: document.getElementById('builder-bg').value,
+                text: document.getElementById('builder-text').value,
+                accent: document.getElementById('builder-accent').value
+            };
+
+            await db.ref(`users/${auth.currentUser.uid}/themePresets/${name}`).set(preset);
+            await db.ref(`users/${auth.currentUser.uid}/theme`).set(name);
+            document.getElementById('builder-name').value = '';
+        };
+
+        function applyFontSize(size) {
+            document.documentElement.style.setProperty('--base-font-size', size + 'px');
+        }
+
+        function applyImageSize(h) {
+            document.documentElement.style.setProperty('--max-img-h', h + 'px');
+        }
+
+        // --- PRIVATE ROOM MODAL LOGIC ---
+        function openAccessModal(id, name) {
+            const modal = document.getElementById('room-access-modal');
+            const input = document.getElementById('room-access-input');
+            const confirmBtn = document.getElementById('room-access-confirm');
+            const error = document.getElementById('room-access-error');
+            
+            input.value = '';
+            error.style.display = 'none';
+            modal.classList.remove('hidden');
+            input.focus();
+
+            confirmBtn.onclick = () => {
+                if (input.value === allRooms[id].code) {
+                    modal.classList.add('hidden');
+                    enterRoom(id, name);
+                } else {
+                    error.style.display = 'block';
+                }
+            };
+        }
+
+        window.closeAccessModal = () => document.getElementById('room-access-modal').classList.add('hidden');
+
+        // --- MEDIA HANDLING ---
+        window.handleMessageMedia = (input, target) => {
+            const file = input.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const rid = target === 'channel' ? currentRoomId : [auth.currentUser.uid, currentDmPartnerId].sort().join('_dm_');
+                sendDirectPayload(rid, { imageUrl: e.target.result });
+            };
+            reader.readAsDataURL(file);
+            input.value = '';
+        };
+
+        // --- CROPPER ---
+        window.initCrop = (input, type) => {
+            const file = input.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    cropState = { type, img, x: 0, y: 0, zoom: 1, isDragging: false };
+                    document.getElementById('crop-image').src = e.target.result;
+                    document.getElementById('crop-title').innerText = type === 'pfp' ? 'Crop Avatar' : 'Crop Banner';
+                    document.getElementById('crop-indicator').className = type === 'pfp' ? 'crop-overlay' : 'crop-overlay banner-crop';
+                    document.getElementById('crop-zoom').value = 1;
+                    document.getElementById('crop-modal').classList.remove('hidden');
+                    updateCropUI();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        };
+
+        function updateCropUI() {
+            const el = document.getElementById('crop-image');
+            el.style.transform = `translate(${cropState.x}px, ${cropState.y}px) scale(${cropState.zoom})`;
+        }
+
+        document.getElementById('crop-zoom').oninput = (e) => { cropState.zoom = parseFloat(e.target.value); updateCropUI(); };
+        document.getElementById('crop-move-x').oninput = (e) => { cropState.x = parseInt(e.target.value); updateCropUI(); };
+        document.getElementById('crop-move-y').oninput = (e) => { cropState.y = parseInt(e.target.value); updateCropUI(); };
+
+        const box = document.getElementById('crop-box');
+        box.onmousedown = () => { cropState.isDragging = true; };
+        window.onmouseup = () => { cropState.isDragging = false; };
+        window.onmousemove = (e) => {
+            if(!cropState.isDragging) return;
+            cropState.x += e.movementX;
+            cropState.y += e.movementY;
+            document.getElementById('crop-move-x').value = cropState.x;
+            document.getElementById('crop-move-y').value = cropState.y;
+            updateCropUI();
+        };
+
+        window.cancelCrop = () => { document.getElementById('crop-modal').classList.add('hidden'); };
+        window.confirmCrop = () => {
+            const canvas = document.getElementById('crop-canvas');
+            const ctx = canvas.getContext('2d');
+            if(cropState.type === 'pfp') { canvas.width = 400; canvas.height = 400; }
+            else { canvas.width = 1200; canvas.height = 420; }
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+            const uiToCanvasRatio = canvas.width / 300;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            ctx.save();
+            ctx.translate(centerX + (cropState.x * uiToCanvasRatio), centerY + (cropState.y * uiToCanvasRatio));
+            ctx.scale(cropState.zoom * uiToCanvasRatio, cropState.zoom * uiToCanvasRatio);
+            ctx.drawImage(cropState.img, -cropState.img.width/2, -cropState.img.height/2);
+            ctx.restore();
+            const data = canvas.toDataURL('image/jpeg', 0.85);
+            if(cropState.type === 'pfp') { tempPfpData = data; document.getElementById('settings-pfp-preview').src = data; }
+            else { tempBannerData = data; document.getElementById('settings-banner-preview').style.backgroundImage = `url(${data})`; }
+            cancelCrop();
+        };
+
+        // --- PROFILE VIEW MODAL ---
+        window.viewProfile = (uid) => {
+            db.ref('users/' + uid).once('value', (snap) => {
+                const user = snap.val();
+                if(!user) return;
+                document.getElementById('modal-username').innerText = user.displayName;
+                document.getElementById('modal-username').style.color = user.color || 'inherit';
+                document.getElementById('modal-pfp').src = user.pfp || '';
+                document.getElementById('modal-banner').style.backgroundImage = user.banner ? `url(${user.banner})` : 'none';
+                document.getElementById('modal-uid').innerText = "UID: " + uid;
+                const dot = document.querySelector('#modal-status-indicator .status-dot');
+                dot.className = `status-dot ${user.status === 'online' ? 'status-online' : 'status-offline'}`;
+                document.getElementById('modal-status-text').innerText = user.status === 'online' ? 'Online' : 'Offline';
+                document.getElementById('modal-dm-btn').onclick = () => { closeProfile(); startDM(uid, user.displayName); };
+                document.getElementById('modal-friend-btn').onclick = () => { addFriend(uid); };
+                document.getElementById('modal-block-btn').onclick = () => { blockUser(uid); };
+                document.getElementById('profile-modal').classList.remove('hidden');
+            });
+        };
+        window.closeProfile = () => document.getElementById('profile-modal').classList.add('hidden');
+        window.copyUID = () => { navigator.clipboard.writeText(document.getElementById('modal-uid').innerText.split(': ')[1]); alert("UID Copied!"); };
+        window.addFriend = (uid) => { if(uid === auth.currentUser.uid) return; db.ref(`users/${auth.currentUser.uid}/contacts/${uid}`).set(true); alert("Added to contacts!"); };
+        window.blockUser = (uid) => { if(confirm("Block this user? Their messages will be hidden.")) { db.ref(`users/${auth.currentUser.uid}/blocked/${uid}`).set(true); closeProfile(); }};
+
+        // --- MESSAGING ---
+        function formatTimestamp(ts) {
+            const date = new Date(ts);
+            const now = new Date();
+            const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            if (date.toDateString() === now.toDateString()) return timeStr;
+            return `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${timeStr}`;
+        }
+
+        function listenForMessages(roomId, listId, containerId) {
+            const container = document.getElementById(listId);
+            const scrollBox = document.getElementById(containerId);
+            const isDM = roomId.includes("_dm_");
+            if(isDM && dmListener) dmListener.off();
+            if(!isDM && messageListener) messageListener.off();
+            const msgRef = db.ref('messages/' + roomId).limitToLast(60);
+            if(isDM) dmListener = msgRef; else messageListener = msgRef;
+            msgRef.on('value', (snap) => {
+                container.innerHTML = '';
+                const data = snap.val();
+                if (data) {
+                    Object.entries(data).forEach(([mId, msg]) => {
+                        if(currentUserData.blocked && currentUserData.blocked[msg.senderId]) return;
+                        const div = document.createElement('div');
+                        div.className = "message-item";
+                        let replyHtml = msg.replyTo ? `<div class="reply-preview-msg">Replying to ${msg.replyTo.name}: ${msg.replyTo.text.substring(0, 20)}...</div>` : '';
+                        let imgHtml = msg.imageUrl ? `<div class="message-image-container"><img src="${msg.imageUrl}" class="message-image" onclick="openLightbox('${msg.imageUrl}')"></div>` : '';
+                        div.innerHTML = `
+                            <div class="pfp-wrapper" onclick="viewProfile('${msg.senderId}')"><img id="msg-pfp-${mId}" class="pfp-img" src=""><div id="dot-${mId}" class="status-dot"></div></div>
+                            <div class="message-content">
+                                ${replyHtml}
+                                <span id="name-${mId}" class="sender" onclick="viewProfile('${msg.senderId}')">
+                                    ${msg.senderName} 
+                                    <span class="timestamp">${formatTimestamp(msg.timestamp)}</span>
+                                </span>
+                                <div>${msg.text || ''}</div>
+                                ${imgHtml}
+                            </div>
+                            <div class="msg-actions">
+                                <button onclick="setReply('${mId}', '${msg.senderName}', '${(msg.text || 'Image').replace(/'/g, "\\'")}')">Reply</button>
+                                ${msg.senderId === auth.currentUser.uid ? `<button onclick="handleDeleteMessage('${roomId}', '${mId}')" class="btn-danger">Delete</button>` : ''}
+                            </div>`;
+                        container.appendChild(div);
+                        syncUserInChat(msg.senderId, mId);
+                    });
+                    scrollBox.scrollTop = scrollBox.scrollHeight;
+                }
+            });
+        }
+
+        function syncUserInChat(uid, mId) {
+            db.ref('users/' + uid).on('value', (s) => {
+                const u = s.val(); if(!u) return;
+                const nameNode = document.getElementById(`name-${mId}`);
+                if(nameNode) { 
+                    const tsElement = nameNode.querySelector('.timestamp');
+                    const ts = tsElement ? tsElement.outerHTML : '';
+                    nameNode.innerHTML = `${u.displayName} ${ts}`;
+                    nameNode.style.color = u.color; 
+                }
+                const pfp = document.getElementById(`msg-pfp-${mId}`); if(pfp) pfp.src = u.pfp || '';
+                const dot = document.getElementById(`dot-${mId}`); if(dot) dot.className = `status-dot ${u.status === 'online' ? 'status-online' : 'status-offline'}`;
+            });
+        }
+
+        // --- PROFILE/SETTINGS ---
+        window.handleUpdateProfile = async () => {
+            await db.ref('users/' + auth.currentUser.uid).update({ displayName: document.getElementById('update-name-input').value, color: document.getElementById('update-color-input').value, pfp: tempPfpData || '', banner: tempBannerData || '' });
+            alert("Profile Saved!");
+        };
+        window.handleUpdateSettings = async () => {
+            const theme = document.getElementById('theme-selector').value;
+            const fontSize = parseInt(document.getElementById('acc-font-range').value);
+            const imgSize = parseInt(document.getElementById('acc-img-h-range').value);
+            await db.ref('users/' + auth.currentUser.uid).update({ 
+                theme: theme,
+                fontSize: fontSize,
+                imgSize: imgSize
+            });
+            alert("All Preferences Saved!");
+        };
+        
+        window.switchTab = (tabName) => {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + tabName).classList.remove('hidden');
+            const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.innerText.toLowerCase().includes(tabName));
+            if(btn) btn.classList.add('active');
+        };
+
+        window.signOutUser = () => auth.signOut();
+        window.openLightbox = (url) => { document.getElementById('lightbox-image').src = url; document.getElementById('lightbox-overlay').classList.remove('hidden'); };
+        window.closeLightbox = () => document.getElementById('lightbox-overlay').classList.add('hidden');
+        window.cancelReply = () => { activeReply = null; document.getElementById('reply-bar').classList.add('hidden'); };
+        window.setReply = (id, name, text) => { activeReply = { id, name, text }; document.getElementById('reply-target-name').innerText = name; document.getElementById('reply-bar').classList.remove('hidden'); };
+        window.handleDeleteMessage = (rid, mid) => { db.ref(`messages/${rid}/${mid}`).remove(); };
+
+        // AUTH
+        document.getElementById('toggle-auth').onclick = () => { isSignUp = !isSignUp; document.getElementById('auth-title').innerText = isSignUp ? "Nexus Join" : "Nexus Login"; document.getElementById('name-field').classList.toggle('hidden', !isSignUp); };
+        document.getElementById('auth-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('auth-email').value, pass = document.getElementById('auth-password').value;
+            try {
+                if(isSignUp) {
+                    const name = document.getElementById('auth-name').value;
+                    const res = await auth.createUserWithEmailAndPassword(email, pass);
+                    await db.ref('users/' + res.user.uid).set({ displayName: name, uid: res.user.uid, theme: 'light', color: '#3366ff', pfp: '', banner: '', status: 'online', fontSize: 16, imgSize: 450 });
+                } else await auth.signInWithEmailAndPassword(email, pass);
+            } catch(err) { document.getElementById('auth-error').innerText = err.message; }
+        };
+
+        // ROOMS
+        window.renderRooms = () => {
+            const list = document.getElementById('room-list');
+            list.innerHTML = `<div class="item-row clickable" onclick="joinRoom('global', 'global')"># global</div>`;
+            Object.entries(allRooms).forEach(([id, r]) => {
+                const isCreator = r.createdBy === auth.currentUser.uid;
+                const div = document.createElement('div');
+                div.className = "item-row";
+                div.innerHTML = `
+                    <div class="clickable" onclick="joinRoom('${id}', '${r.name}')">
+                        ${r.isPrivate ? '🔒 ' : '# '}${r.name}
+                        ${(r.isPrivate && isCreator) ? `<br><small style="color:var(--accent); text-decoration: none;">Code: ${r.code}</small>` : ''}
+                    </div>`;
+                list.appendChild(div);
+            });
+        };
+
+        window.joinRoom = (id, name) => {
+            if (id !== 'global' && allRooms[id].isPrivate && allRooms[id].createdBy !== auth.currentUser.uid) {
+                openAccessModal(id, name);
+                return;
+            }
+            enterRoom(id, name);
+        };
+
+        function enterRoom(id, name) {
+            currentRoomId = id; 
+            document.getElementById('current-room-display').innerText = name;
+            listenForMessages(id, 'messages-list-inner', 'messages-container');
+        }
+
+        window.handleCreateRoom = () => {
+            const name = document.getElementById('new-room-name').value;
+            const isPrivate = document.getElementById('room-is-private').checked;
+            const code = document.getElementById('room-code').value;
+            if(!name) return;
+            db.ref('rooms').push({ name, isPrivate, code, createdBy: auth.currentUser.uid });
+            document.getElementById('new-room-name').value = '';
+            document.getElementById('room-code').value = '';
+            document.getElementById('room-is-private').checked = false;
+        };
+
+        // MESSAGES
+        function sendDirectPayload(roomId, extra) {
+            const payload = { 
+                senderId: auth.currentUser.uid, 
+                senderName: currentUserData.displayName, 
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                ...extra 
+            };
+            if(activeReply) { payload.replyTo = activeReply; cancelReply(); }
+            db.ref('messages/' + roomId).push(payload).catch(err => alert("Send failed: " + err.message));
+        }
+
+        const sendMessage = async (roomId, textId) => {
+            const txtInp = document.getElementById(textId);
+            if(!txtInp.value) return;
+            sendDirectPayload(roomId, { text: txtInp.value });
+            txtInp.value = '';
+        };
+
+        document.getElementById('message-form').onsubmit = (e) => { e.preventDefault(); sendMessage(currentRoomId, 'message-input'); };
+        document.getElementById('dm-message-form').onsubmit = (e) => { e.preventDefault(); sendMessage([auth.currentUser.uid, currentDmPartnerId].sort().join('_dm_'), 'dm-message-input'); };
+
+        // CONTACTS
+        function syncContacts() {
+            db.ref(`users/${auth.currentUser.uid}/contacts`).on('value', (s) => {
+                const list = document.getElementById('contacts-list'); list.innerHTML = '';
+                Object.keys(s.val() || {}).forEach(uid => {
+                    db.ref('users/' + uid).once('value', (sn) => {
+                        const u = sn.val(); if(!u) return;
+                        const d = document.createElement('div'); d.className = "item-row";
+                        d.innerHTML = `<span class="clickable" onclick="startDM('${uid}', '${u.displayName}')">${u.displayName}</span><button onclick="db.ref('users/${auth.currentUser.uid}/contacts/${uid}').remove()">✕</button>`;
+                        list.appendChild(d);
+                    });
+                });
+            });
+        }
+        window.startDM = (uid, name) => {
+            currentDmPartnerId = uid; document.getElementById('dm-title').innerText = "DM: " + name;
+            document.getElementById('dm-message-form').classList.remove('hidden');
+            listenForMessages([auth.currentUser.uid, uid].sort().join('_dm_'), 'dm-list-inner', 'dm-messages-container');
+        };
+    </script>
+</body>
+</html>
